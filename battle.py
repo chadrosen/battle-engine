@@ -5,19 +5,22 @@ import sys
 import os
 
 CHARACTERS_FILE = os.path.join(os.path.dirname(__file__), 'characters.json')
+CLASSES_FILE = os.path.join(os.path.dirname(__file__), 'classes.json')
 WEAPONS_FILE = os.path.join(os.path.dirname(__file__), 'weapons.json')
 
 
 def load_data():
     with open(CHARACTERS_FILE) as f:
         characters = json.load(f)
+    with open(CLASSES_FILE) as f:
+        classes = json.load(f)
     with open(WEAPONS_FILE) as f:
         weapons = json.load(f)
-    return characters, weapons
+    return characters, classes, weapons
 
 
 def run_battle(char1_name, char2_name, seed):
-    characters, weapons = load_data()
+    characters, classes, weapons = load_data()
 
     if char1_name not in characters:
         raise ValueError(f"Unknown character: {char1_name}")
@@ -25,18 +28,25 @@ def run_battle(char1_name, char2_name, seed):
         raise ValueError(f"Unknown character: {char2_name}")
 
     def make_unit(name):
-        data = characters[name]
-        level = data.get('level', 1)
-        hp = data['base_hp'] + (level - 1) * 10
+        char = characters[name]
+        cls = classes[char['class']]
+        prog = cls['progression']
+        level = char.get('level', 1)
+        gains = level - 1
+        hp = cls['base_hp'] + round(gains * prog['hp_per_level'])
+        attack = cls['attack'] + round(gains * prog['attack_per_level'])
+        defense = cls['defense'] + round(gains * prog['defense_per_level'])
+        speed = cls['speed'] + round(gains * prog['speed_per_level'])
         return {
             'name': name,
+            'class': char['class'],
             'level': level,
             'hp': hp,
             'max_hp': hp,
-            'attack': data['attack'],
-            'defense': data['defense'],
-            'speed': data['speed'],
-            'weapon': data['weapon']
+            'attack': attack,
+            'defense': defense,
+            'speed': speed,
+            'weapon': cls['weapon']
         }
 
     unit1 = make_unit(char1_name)
@@ -66,7 +76,11 @@ def run_battle(char1_name, char2_name, seed):
             hit_roll = rng.randint(1, 20)
             hits = (hit_roll + attacker['attack']) >= defender['defense']
 
-            if hits:
+            speed_advantage = defender['speed'] - attacker['speed']
+            dodge_chance = max(0.0, min(0.5, speed_advantage / 30))
+            dodged = hits and rng.random() < dodge_chance
+
+            if hits and not dodged:
                 damage_die = weapons[attacker['weapon']]['damage_die']
                 damage = rng.randint(1, damage_die)
                 defender['hp'] = max(0, defender['hp'] - damage)
@@ -74,6 +88,9 @@ def run_battle(char1_name, char2_name, seed):
                     f"{attacker['name']} hits {defender['name']} for {damage} damage "
                     f"(roll: {hit_roll}). {defender['name']} has {defender['hp']} HP remaining."
                 )
+            elif dodged:
+                damage = 0
+                result_text = f"{defender['name']} dodges {attacker['name']}'s attack (roll: {hit_roll})."
             else:
                 damage = 0
                 result_text = f"{attacker['name']} misses {defender['name']} (roll: {hit_roll})."
@@ -83,7 +100,8 @@ def run_battle(char1_name, char2_name, seed):
                 'attacker': attacker['name'],
                 'defender': defender['name'],
                 'hit_roll': hit_roll,
-                'hit': hits,
+                'hit': hits and not dodged,
+                'dodged': dodged,
                 'damage': damage,
                 'defender_hp': defender['hp'],
                 'result': result_text

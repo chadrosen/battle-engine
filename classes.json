@@ -1,0 +1,28 @@
+{
+    "warrior": {
+        "base_hp": 50,
+        "attack": 8,
+        "defense": 12,
+        "speed": 5,
+        "weapon": "sword",
+        "progression": {
+            "hp_per_level": 12,
+            "attack_per_level": 0.5,
+            "defense_per_level": 1.0,
+            "speed_per_level": 0.0
+        }
+    },
+    "rogue": {
+        "base_hp": 35,
+        "attack": 10,
+        "defense": 8,
+        "speed": 14,
+        "weapon": "dagger",
+        "progression": {
+            "hp_per_level": 6,
+            "attack_per_level": 1.0,
+            "defense_per_level": 0.5,
+            "speed_per_level": 1.0
+        }
+    }
+}
