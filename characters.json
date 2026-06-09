@@ -1,0 +1,34 @@
+{
+    "warrior": {
+        "level": 5,
+        "base_hp": 50,
+        "attack": 8,
+        "defense": 12,
+        "speed": 5,
+        "weapon": "sword"
+    },
+    "rogue": {
+        "level": 4,
+        "base_hp": 35,
+        "attack": 10,
+        "defense": 8,
+        "speed": 14,
+        "weapon": "dagger"
+    },
+    "mage": {
+        "level": 3,
+        "base_hp": 25,
+        "attack": 12,
+        "defense": 6,
+        "speed": 9,
+        "weapon": "staff"
+    },
+    "paladin": {
+        "level": 6,
+        "base_hp": 60,
+        "attack": 7,
+        "defense": 15,
+        "speed": 4,
+        "weapon": "mace"
+    }
+}

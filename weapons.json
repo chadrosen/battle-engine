@@ -1,0 +1,7 @@
+{
+    "sword":  {"damage_die": 8},
+    "dagger": {"damage_die": 6},
+    "staff":  {"damage_die": 6},
+    "mace":   {"damage_die": 6},
+    "fists":  {"damage_die": 4}
+}
