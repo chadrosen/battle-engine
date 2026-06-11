@@ -1,4 +1,14 @@
 {
-    "Aragorn": { "class": "warrior", "level": 5 },
-    "Legolas": { "class": "rogue",   "level": 5 }
+    "Aragorn": {
+        "class": "warrior",
+        "level": 5
+    },
+    "Legolas": {
+        "class": "rogue",
+        "level": 5
+    },
+    "Gandalf": {
+        "class": "mage",
+        "level": 5
+    }
 }

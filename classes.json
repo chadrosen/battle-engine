@@ -24,5 +24,18 @@
             "defense_per_level": 0.5,
             "speed_per_level": 1.0
         }
+    },
+    "mage": {
+        "base_hp": 30,
+        "attack": 8,
+        "defense": 6,
+        "speed": 12,
+        "weapon": "staff",
+        "progression": {
+            "hp_per_level": 6,
+            "attack_per_level": 1.0,
+            "defense_per_level": 0.5,
+            "speed_per_level": 1.0
+        }
     }
 }

@@ -1,5 +1,14 @@
 {
-    "sword":  {"damage_die": 8},
-    "dagger": {"damage_die": 9},
-    "fists":  {"damage_die": 4}
+    "sword": {
+        "damage_die": 8
+    },
+    "dagger": {
+        "damage_die": 9
+    },
+    "fists": {
+        "damage_die": 4
+    },
+    "staff": {
+        "damage_die": 7
+    }
 }
