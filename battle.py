@@ -46,15 +46,20 @@ def run_battle(char1_name, char2_name, seed):
             'attack': attack,
             'defense': defense,
             'speed': speed,
-            'weapon': cls['weapon']
+            'weapon': cls['weapon'],
+            'stun_turns': 0
         }
 
     unit1 = make_unit(char1_name)
     unit2 = make_unit(char2_name)
-
     rng = random.Random(seed)
 
-    # Determine turn order — fastest first, ties broken by rng
+    # Stats tracking
+    stats = {
+        unit1['name']: {'damage_dealt': 0, 'crit_hits': 0, 'crit_misses': 0, 'attacks_dodged': 0},
+        unit2['name']: {'damage_dealt': 0, 'crit_hits': 0, 'crit_misses': 0, 'attacks_dodged': 0},
+    }
+
     if unit1['speed'] > unit2['speed']:
         turn_order = [unit1, unit2]
     elif unit2['speed'] > unit1['speed']:
@@ -73,23 +78,101 @@ def run_battle(char1_name, char2_name, seed):
             if defender['hp'] <= 0:
                 break
 
-            hit_roll = rng.randint(1, 20)
-            hits = (hit_roll + attacker['attack']) >= defender['defense']
+            # Stunned unit skips turn
+            if attacker['stun_turns'] > 0:
+                attacker['stun_turns'] -= 1
+                turns.append({
+                    'turn_id': turn_id,
+                    'attacker': attacker['name'],
+                    'action': 'none',
+                    'stun_turns_remaining': attacker['stun_turns'],
+                    'damage': 0,
+                    'attacker_hp': attacker['hp'],
+                    'defender_hp': defender['hp'],
+                    'attacker_status': 'stunned',
+                    'defender_status': 'stunned' if defender['stun_turns'] > 0 else 'none',
+                    'result': f"{attacker['name']} is stunned and cannot act!"
+                })
+                turn_id += 1
+                continue
 
-            speed_advantage = defender['speed'] - attacker['speed']
-            dodge_chance = max(0.0, min(0.5, speed_advantage / 30))
+            hit_roll = rng.randint(1, 20)
+
+            if hit_roll <= 2:
+                # Critical miss — attacker takes 2 damage and is stunned
+                attacker['hp'] = max(0, attacker['hp'] - 2)
+                attacker['stun_turns'] += 1
+                stats[attacker['name']]['crit_misses'] += 1
+                turns.append({
+                    'turn_id': turn_id,
+                    'attacker': attacker['name'],
+                    'defender': defender['name'],
+                    'action': 'attack',
+                    'hit_roll': hit_roll,
+                    'hit': False,
+                    'dodged': False,
+                    'damage': 0,
+                    'attacker_status': 'stunned',
+                    'defender_status': 'stunned' if defender['stun_turns'] > 0 else 'none',
+                    'defender_hp': defender['hp'],
+                    'attacker_hp': attacker['hp'],
+                    'critical': True,
+                    'result': f"{attacker['name']} rolls a critical miss, takes 2 damage, and is stunned for the next round!"
+                })
+                turn_id += 1
+                if attacker['hp'] <= 0:
+                    winner = defender['name']
+                    break
+                continue
+
+            if hit_roll >= 18:
+                # Critical hit — bypass armor+dodge, deal 1.5x damage, stun defender
+                damage_die = weapons[attacker['weapon']]['damage_die']
+                damage = round(rng.randint(1, damage_die) * 1.5)
+                defender['hp'] = max(0, defender['hp'] - damage)
+                defender['stun_turns'] += 1
+                stats[attacker['name']]['crit_hits'] += 1
+                stats[attacker['name']]['damage_dealt'] += damage
+                turns.append({
+                    'turn_id': turn_id,
+                    'attacker': attacker['name'],
+                    'defender': defender['name'],
+                    'action': 'attack',
+                    'hit_roll': hit_roll,
+                    'hit': True,
+                    'dodged': False,
+                    'damage': damage,
+                    'attacker_hp': attacker['hp'],
+                    'defender_hp': defender['hp'],
+                    'critical': True,
+                    'attacker_status': 'stunned' if attacker['stun_turns'] > 0 else 'none',
+                    'defender_status': 'stunned',
+                    'result': f"{attacker['name']} rolls a critical hit. {defender['name']} takes extra damage and is stunned in the next round!"
+                })
+                turn_id += 1
+                if defender['hp'] <= 0:
+                    winner = attacker['name']
+                    break
+                continue
+
+            # Normal attack
+            hits = (hit_roll + attacker['attack']) >= defender['defense']
+            spd = defender['speed'] - attacker['speed']
+            dodge_chance = max(0.0, min(0.35, spd / 40))
             dodged = hits and rng.random() < dodge_chance
 
             if hits and not dodged:
                 damage_die = weapons[attacker['weapon']]['damage_die']
                 damage = rng.randint(1, damage_die)
                 defender['hp'] = max(0, defender['hp'] - damage)
+                stats[attacker['name']]['damage_dealt'] += damage
                 result_text = (
                     f"{attacker['name']} hits {defender['name']} for {damage} damage "
                     f"(roll: {hit_roll}). {defender['name']} has {defender['hp']} HP remaining."
                 )
             elif dodged:
                 damage = 0
+                stats[attacker['name']]['attacks_dodged'] += 1
                 result_text = f"{defender['name']} dodges {attacker['name']}'s attack (roll: {hit_roll})."
             else:
                 damage = 0
@@ -99,11 +182,16 @@ def run_battle(char1_name, char2_name, seed):
                 'turn_id': turn_id,
                 'attacker': attacker['name'],
                 'defender': defender['name'],
+                'action': 'attack',
                 'hit_roll': hit_roll,
                 'hit': hits and not dodged,
                 'dodged': dodged,
                 'damage': damage,
+                'attacker_hp': attacker['hp'],
                 'defender_hp': defender['hp'],
+                'critical': False,
+                'attacker_status': 'stunned' if attacker['stun_turns'] > 0 else 'none',
+                'defender_status': 'stunned' if defender['stun_turns'] > 0 else 'none',
                 'result': result_text
             })
             turn_id += 1
@@ -122,7 +210,64 @@ def run_battle(char1_name, char2_name, seed):
             unit1['name']: unit1['hp'],
             unit2['name']: unit2['hp']
         },
-        'turns': turns
+        'turns': turns,
+        'stats': stats
+    }
+
+
+def get_death_cause(result):
+    """Classify how the loser died."""
+    loser = result['final_hp']
+    loser_name = [k for k, v in loser.items() if v == 0]
+    if not loser_name:
+        return 'basic_attack'
+    loser_name = loser_name[0]
+
+    # Find the killing turn
+    for t in reversed(result['turns']):
+        # Crit miss self-death: attacker is loser, crit miss, hp=0
+        if t.get('attacker') == loser_name and t.get('critical') and not t.get('hit'):
+            if t.get('attacker_hp', 1) == 0:
+                return 'critical_miss'
+        # Crit hit death: defender is loser, crit hit, hp=0
+        if t.get('defender') == loser_name and t.get('critical') and t.get('hit'):
+            if t.get('defender_hp', 1) == 0:
+                return 'critical_hit'
+        # Basic attack death: defender is loser, not crit, hp=0
+        if t.get('defender') == loser_name and not t.get('critical') and t.get('hit'):
+            if t.get('defender_hp', 1) == 0:
+                return 'basic_attack'
+    return 'basic_attack'
+
+
+def run_simulation(char1_name, char2_name, start_seed, count):
+    wins = {char1_name: 0, char2_name: 0}
+    turns_list = []
+    death_causes = {'basic_attack': 0, 'critical_hit': 0, 'critical_miss': 0}
+
+    for i in range(count):
+        seed = start_seed + i
+        result = run_battle(char1_name, char2_name, seed)
+        winner = result['winner']
+        if winner:
+            wins[winner] = wins.get(winner, 0) + 1
+        turns_list.append(len(result['turns']))
+        cause = get_death_cause(result)
+        death_causes[cause] = death_causes.get(cause, 0) + 1
+
+    total = count
+    return {
+        'fighters': [char1_name, char2_name],
+        'seed_range': [start_seed, start_seed + count - 1],
+        'total_simulations': total,
+        'wins': wins,
+        'win_percentage': {
+            k: round(v / total * 100, 2) for k, v in wins.items()
+        },
+        'average_turns': round(sum(turns_list) / len(turns_list), 2),
+        'minimum_turns': min(turns_list),
+        'maximum_turns': max(turns_list),
+        'death_causes': death_causes
     }
 
 
@@ -130,15 +275,26 @@ def main():
     parser = argparse.ArgumentParser(description='Run a 1v1 battle between two characters.')
     parser.add_argument('character1', help='Name of the first character')
     parser.add_argument('character2', help='Name of the second character')
-    parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for single battle')
     parser.add_argument('--output', default='/app/result.json', help='Output file path')
+    parser.add_argument('--simulate', action='store_true', help='Run batch simulation')
+    parser.add_argument('--count', type=int, default=100, help='Number of simulations')
+    parser.add_argument('--start-seed', type=int, default=1, help='Starting seed for simulation')
+    parser.add_argument('--verbose', action='store_true', help='Include turn logs in simulation output')
     args = parser.parse_args()
 
     try:
-        result = run_battle(args.character1, args.character2, args.seed)
-        with open(args.output, 'w') as f:
-            json.dump(result, f, indent=4)
-        print(json.dumps(result, indent=4))
+        if args.simulate:
+            sim_result = run_simulation(args.character1, args.character2, args.start_seed, args.count)
+            output = json.dumps(sim_result, indent=4)
+            print(output)
+            with open(args.output, 'w') as f:
+                f.write(output)
+        else:
+            result = run_battle(args.character1, args.character2, args.seed)
+            with open(args.output, 'w') as f:
+                json.dump(result, f, indent=4)
+            print(json.dumps(result, indent=4))
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
